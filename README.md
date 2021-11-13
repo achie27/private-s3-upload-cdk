@@ -1,19 +1,49 @@
-# Welcome to your CDK TypeScript project!
+# Overview
+AWS CDK is used to create the AWS infrastructure required for third parties to upload images (JPEGs) to a private S3 bucket. This stack also sends an email every time an image is uploaded to the bucket.
 
-You should explore the contents of this project. It demonstrates a CDK app with an instance of a stack (`PrivateS3UploadStack`)
-which contains an Amazon SQS queue that is subscribed to an Amazon SNS topic.
+# Prerequisites
+1. Node and npm
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+# Setup
+1. `npm ci`
+2. Change `uploadNotificationEmail` in bin/private-s3-upload.ts to the email of your choice 
+3. `npm run build`
+4. `cdk deploy`
+    - If a new AWS environment is being used, run `cdk bootstrap` before this step
+5. Look out for `PrivateS3UploadStack.TheAPI` and `PrivateS3UploadStack.TheBucket` under "Outputs" - `PrivateS3UploadStack.TheAPI` is what clients will use and images will be uploaded to `PrivateS3UploadStack.TheBucket`
 
-## Tutorial  
-See [this useful workshop](https://cdkworkshop.com/20-typescript.html) on working with the AWS CDK for Typescript projects.
+# Usage
+1. This stack exposes `${TheAPI}/getPresignedUrl` for clients to get access to upload their JPEGs. Following are the request and response structures
+    - GET `/getPresignedUrl`
+    - ```json
+      {
+        "url": "...",
+        "fields": {
+          "key": "...",
+          "bucket": "...",
+          "X-Amz-Algorithm": "...",
+          "X-Amz-Credential": "...",
+          "X-Amz-Date": "...",
+          "X-Amz-Security-Token": "...",
+          "Policy": "...",
+          "X-Amz-Signature": "..."
+        }
+      }
+      ```
+2. Clients then use the response from GET `/getPresignedUrl` to upload their JPEGs like so
+    - ```cURL
+      curl --location --request POST '${RESPONSE.url}' \
+      --form 'key="${RESPONSE.fields.key}"' \
+      --form 'bucket="${RESPONSE.fields.bucket}"' \
+      --form 'X-Amz-Algorithm="${RESPONSE.fields['X-Amz-Algorithm']}"' \
+      --form 'X-Amz-Credential="${RESPONSE.fields['X-Amz-Credential']}"' \
+      --form 'X-Amz-Date="${RESPONSE.fields['X-Amz-Date']}"' \
+      --form 'X-Amz-Security-Token="${RESPONSE.fields['X-Amz-Security-Token']}"' \
+      --form 'Policy="${RESPONSE.fields['Policy']}"' \
+      --form 'X-Amz-Signature="${RESPONSE.fields['X-Amz-Signature']}"' \
+      --form 'Content-Type="image/jpeg"' \
+      --form 'file=@"/path/to/image.jpg"'
+      ```
 
-
-## Useful commands
-
- * `npm run build`   compile typescript to js
- * `npm run watch`   watch for changes and compile
- * `npm run test`    perform the jest unit tests
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk synth`       emits the synthesized CloudFormation template
+# TODOs
+- Add authentication on the API
